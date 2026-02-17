@@ -4,7 +4,8 @@
  * Sistema de Registro y Autenticación Segura
  */
 
-session_start();
+require_once __DIR__ . '/includes/seguridad.php';
+iniciarSesionSegura();
 
 // Verificar que el usuario esté autenticado
 if (!isset($_SESSION['usuario_autenticado']) || $_SESSION['usuario_autenticado'] !== true) {

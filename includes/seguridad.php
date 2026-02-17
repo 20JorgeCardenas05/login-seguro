@@ -6,6 +6,57 @@
 
 require_once __DIR__ . '/../config/database.php';
 
+// ══════════════════════════════════════════
+// INICIALIZACIÓN SEGURA DE SESIÓN Y HEADERS
+// ══════════════════════════════════════════
+
+/**
+ * Inicia la sesión con parámetros seguros y envía headers de seguridad HTTP.
+ * Debe llamarse ANTES de cualquier salida HTML.
+ */
+function iniciarSesionSegura(): void
+{
+    // Configurar cookies de sesión con flags de seguridad
+    $esHTTPS = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $esHTTPS,      // Solo enviar cookie por HTTPS cuando esté disponible
+        'httponly'  => true,          // Prevenir acceso JavaScript a la cookie (HttpOnly)
+        'samesite'  => 'Strict',     // Prevenir envío cross-site (SameSite)
+    ]);
+
+    session_start();
+
+    // ─── Headers de seguridad HTTP ───
+
+    // Prevenir clickjacking: no permitir que la página se cargue en iframes
+    header('X-Frame-Options: DENY');
+
+    // Prevenir MIME-type sniffing
+    header('X-Content-Type-Options: nosniff');
+
+    // Habilitar protección XSS del navegador
+    header('X-XSS-Protection: 1; mode=block');
+
+    // Ocultar información del servidor (X-Powered-By)
+    header_remove('X-Powered-By');
+
+    // Política de seguridad de contenido (CSP)
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
+
+    // Política de referencia: no enviar referrer a otros dominios
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+
+    // Controlar permisos del navegador
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+
+    // Cache control para páginas con datos sensibles
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+}
+
 // ─── Constantes de seguridad ───
 define('MAX_INTENTOS_FALLIDOS', 5);         // Máximo de intentos antes de bloqueo
 define('TIEMPO_BLOQUEO_MINUTOS', 15);       // Minutos de bloqueo tras exceder intentos

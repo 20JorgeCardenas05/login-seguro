@@ -4,8 +4,8 @@
  * Sistema de Registro y Autenticación Segura
  */
 
-session_start();
 require_once __DIR__ . '/includes/seguridad.php';
+iniciarSesionSegura();
 
 $mensaje      = '';
 $tipoMensaje  = '';
