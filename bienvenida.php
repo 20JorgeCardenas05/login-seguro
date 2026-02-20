@@ -13,6 +13,12 @@ if (!isset($_SESSION['usuario_autenticado']) || $_SESSION['usuario_autenticado']
     exit;
 }
 
+// Si es administrador, redirigir al panel de admin
+if (esAdministrador()) {
+    header('Location: admin.php');
+    exit;
+}
+
 $nombreUsuario = htmlspecialchars($_SESSION['nombre_usuario'] ?? '', ENT_QUOTES, 'UTF-8');
 $horaLogin     = $_SESSION['hora_login'] ?? '';
 ?>
@@ -43,6 +49,11 @@ $horaLogin     = $_SESSION['hora_login'] ?? '';
             Su autenticación fue verificada mediante hash SHA-256 con sal única.
             Sus credenciales nunca se almacenan en texto plano.
         </div>
+
+        <?php if (esAdministrador()): ?>
+            <a href="admin.php" class="btn btn-admin">Panel de Administración</a>
+            <br><br>
+        <?php endif; ?>
 
         <a href="logout.php" class="btn btn-logout">Cerrar Sesión</a>
     </div>

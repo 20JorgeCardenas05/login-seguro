@@ -7,9 +7,13 @@
 require_once __DIR__ . '/includes/seguridad.php';
 iniciarSesionSegura();
 
-// Si ya tiene sesión activa, redirigir a bienvenida
+// Si ya tiene sesión activa, redirigir según rol
 if (isset($_SESSION['usuario_autenticado']) && $_SESSION['usuario_autenticado'] === true) {
-    header('Location: bienvenida.php');
+    if (esAdministrador()) {
+        header('Location: admin.php');
+    } else {
+        header('Location: bienvenida.php');
+    }
     exit;
 }
 
@@ -46,8 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['usuario_autenticado'] = true;
                 $_SESSION['nombre_usuario']      = $usuario;
                 $_SESSION['hora_login']          = date('Y-m-d H:i:s');
+                $_SESSION['rol_usuario']         = $resultado['rol'] ?? 'usuario';
 
-                header('Location: bienvenida.php');
+                // Redirigir según el rol del usuario
+                if ($_SESSION['rol_usuario'] === 'admin') {
+                    header('Location: admin.php');
+                } else {
+                    header('Location: bienvenida.php');
+                }
                 exit;
             } else {
                 $mensaje     = $resultado['mensaje'];

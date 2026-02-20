@@ -351,7 +351,7 @@ function autenticarUsuario(string $usuario, string $contrasena): array
 
     // Buscar usuario en la base de datos
     $db   = obtenerConexion();
-    $sql  = "SELECT salt, hash_contrasena FROM usuarios WHERE nombre_usuario = :usuario AND activo = 1";
+    $sql  = "SELECT salt, hash_contrasena, rol FROM usuarios WHERE nombre_usuario = :usuario AND activo = 1";
     $stmt = $db->prepare($sql);
     $stmt->execute([':usuario' => $usuario]);
     $user = $stmt->fetch();
@@ -368,12 +368,89 @@ function autenticarUsuario(string $usuario, string $contrasena): array
     if (verificarHash($contrasena, $user['salt'], $user['hash_contrasena'])) {
         // Login exitoso — limpiar intentos fallidos
         limpiarIntentosFallidos($usuario);
-        return ['exito' => true, 'mensaje' => 'Autenticación exitosa.'];
+        // Registrar la sesión en el historial
+        registrarSesion($usuario);
+        return ['exito' => true, 'mensaje' => 'Autenticación exitosa.', 'rol' => $user['rol']];
     }
 
     // Contraseña incorrecta
     registrarIntentoFallido($usuario);
     return ['exito' => false, 'mensaje' => 'Credenciales inválidas. Verifique su usuario y contraseña.'];
+}
+
+// ══════════════════════════════════════════
+// FUNCIONES DE REGISTRO DE SESIONES (ADMIN)
+// ══════════════════════════════════════════
+
+/**
+ * Registra un inicio de sesión exitoso en el historial
+ * @param string $usuario  Nombre de usuario que inició sesión
+ */
+function registrarSesion(string $usuario): void
+{
+    $db  = obtenerConexion();
+    $sql = "INSERT INTO registro_sesiones (nombre_usuario, direccion_ip, fecha_login)
+            VALUES (:usuario, :ip, NOW())";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':usuario' => $usuario,
+        ':ip'      => obtenerIP()
+    ]);
+}
+
+/**
+ * Obtiene el historial de todos los inicios de sesión (para administradores)
+ * @param int $limite  Número máximo de registros a devolver
+ * @return array       Lista de sesiones registradas
+ */
+function obtenerHistorialSesiones(int $limite = 100): array
+{
+    $db  = obtenerConexion();
+    $sql = "SELECT rs.nombre_usuario, rs.direccion_ip, rs.fecha_login
+            FROM registro_sesiones rs
+            ORDER BY rs.fecha_login DESC
+            LIMIT :limite";
+    $stmt = $db->prepare($sql);
+    $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+/**
+ * Verifica si el usuario actual tiene rol de administrador
+ * @return bool  true si es administrador
+ */
+function esAdministrador(): bool
+{
+    return isset($_SESSION['rol_usuario']) && $_SESSION['rol_usuario'] === 'admin';
+}
+
+/**
+ * Obtiene todos los usuarios registrados (para el panel de administración)
+ * @return array  Lista de usuarios con sus datos (sin contraseña en texto plano)
+ */
+function obtenerTodosLosUsuarios(): array
+{
+    $db  = obtenerConexion();
+    $sql = "SELECT id, nombre_usuario, hash_contrasena, rol, fecha_creacion
+            FROM usuarios
+            ORDER BY id ASC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+/**
+ * Obtiene el total de usuarios registrados
+ * @return int  Número de usuarios
+ */
+function contarUsuarios(): int
+{
+    $db   = obtenerConexion();
+    $sql  = "SELECT COUNT(*) FROM usuarios";
+    $stmt = $db->prepare($sql);
+    $stmt->execute();
+    return (int)$stmt->fetchColumn();
 }
 
 /**
