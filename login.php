@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/includes/seguridad.php';
+require_once __DIR__ . '/config/firebase.php';
 iniciarSesionSegura();
 
 // Si ya tiene sesión activa, redirigir según rol
@@ -21,7 +22,7 @@ $mensaje      = '';
 $tipoMensaje  = '';
 $usuarioInput = '';
 
-// Procesar formulario de login
+// Procesar formulario de login (usuario/contraseña local)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Validar token CSRF
@@ -120,11 +121,39 @@ $csrfToken = generarTokenCSRF();
             </div>
 
             <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+
+            <div class="oauth-divider">
+                <span></span>
+                <strong>o</strong>
+                <span></span>
+            </div>
+
+            <button type="button" id="btn-google" class="btn btn-google" aria-live="polite">
+                <span class="google-icon">G</span>
+                Continuar con Google (Firebase)
+            </button>
+
+            <div id="firebase-alert" class="alert alert-warning" style="display: none;"></div>
         </form>
 
         <p class="link-text">
             ¿No tiene cuenta? <a href="registro.php">Registrarse</a>
         </p>
     </div>
+
+    <script>
+        // Configuración pública del proyecto Firebase (no contiene secretos).
+        window.FIREBASE_CONFIG = {
+            apiKey: "<?= addslashes(FIREBASE_API_KEY) ?>",
+            authDomain: "<?= addslashes(FIREBASE_AUTH_DOMAIN) ?>",
+            projectId: "<?= addslashes(FIREBASE_PROJECT_ID) ?>",
+            appId: "<?= addslashes(FIREBASE_APP_ID) ?>",
+            messagingSenderId: "<?= addslashes(FIREBASE_MESSAGING_SENDER_ID) ?>",
+            measurementId: "<?= addslashes(FIREBASE_MEASUREMENT_ID) ?>"
+        };
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js" crossorigin="anonymous"></script>
+    <script src="js/firebase-auth.js"></script>
 </body>
 </html>

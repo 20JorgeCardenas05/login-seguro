@@ -4,31 +4,29 @@
 # ============================================
 
 # --- Deshabilitar listado de directorios ---
-# Previene que se pueda navegar el contenido de carpetas (Directory Browsing)
 Options -Indexes
 
 # --- Ocultar versión del servidor Apache ---
-# Evita que el header "Server" revele la versión exacta de Apache
 ServerSignature Off
 
-# --- Ocultar X-Powered-By de PHP ---
-# Evita revelar que el backend usa PHP y su versión
+# --- Encabezados de seguridad y COOP para Firebase popups ---
 <IfModule mod_headers.c>
     Header unset X-Powered-By
     Header always unset X-Powered-By
 
     # Ocultar detalle de la versión del servidor
     Header always unset Server
+
+    # Permitir que el popup de Firebase pueda cerrarse (COOP compatible con window.close)
+    Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
 </IfModule>
 
 # --- Proteger archivos sensibles ---
-# Bloquear acceso a archivos .htaccess, .sql, .log, .ini
 <FilesMatch "\.(htaccess|htpasswd|sql|log|ini|env|bak)$">
     Require all denied
 </FilesMatch>
 
 # --- Proteger carpeta includes y config ---
-# Bloquear acceso directo a archivos PHP de configuración e includes
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteRule ^(includes|config)/ - [F,L]

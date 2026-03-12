@@ -40,11 +40,26 @@ function iniciarSesionSegura(): void
     // Habilitar protección XSS del navegador
     header('X-XSS-Protection: 1; mode=block');
 
+    // Permitir popups cross-origin usados por Firebase Auth sin bloquear window.close/window.closed
+    header('Cross-Origin-Opener-Policy: same-origin-allow-popups');
+
     // Ocultar información del servidor (X-Powered-By)
     header_remove('X-Powered-By');
 
     // Política de seguridad de contenido (CSP)
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
+    header(
+        "Content-Security-Policy: " .
+        "default-src 'self'; " .
+        "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.googleapis.com https://apis.google.com; " .
+        "style-src 'self' 'unsafe-inline'; " .
+        "img-src 'self' data: https://www.gstatic.com https://lh3.googleusercontent.com; " .
+        "font-src 'self' https://www.gstatic.com https://fonts.gstatic.com; " .
+        "connect-src 'self' https://www.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://www.gstatic.com; " .
+        "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com; " .
+        "form-action 'self'; " .
+        "frame-ancestors 'none'; " .
+        "base-uri 'self'"
+    );
 
     // Política de referencia: no enviar referrer a otros dominios
     header('Referrer-Policy: strict-origin-when-cross-origin');

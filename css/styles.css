@@ -124,6 +124,59 @@ body {
     transform: translateY(0);
 }
 
+.btn-google {
+    background: #ffffff;
+    color: #444;
+    border: 1px solid #dcdcdc;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-transform: none;
+    letter-spacing: 0.2px;
+}
+
+.btn-google:hover {
+    background: #f7f7f7;
+    transform: translateY(-1px);
+}
+
+.btn-google:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.google-icon {
+    font-weight: 800;
+    color: #4285F4;
+    background: #fff;
+    border: 1px solid #dcdcdc;
+    padding: 4px 6px;
+    border-radius: 4px;
+    line-height: 1;
+}
+
+.btn-loading {
+    cursor: wait;
+}
+
+.loader {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #eaeaea;
+    border-top-color: #4285F4;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 /* --- Mensajes de alerta --- */
 .alert {
     padding: 12px 16px;
@@ -169,6 +222,24 @@ body {
 .link-text a:hover {
     color: #0f0c29;
     text-decoration: underline;
+}
+
+.oauth-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0;
+    color: #999;
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.oauth-divider span {
+    flex: 1;
+    height: 1px;
+    background: #e5e5e5;
 }
 
 /* --- Requisitos de contraseña --- */
