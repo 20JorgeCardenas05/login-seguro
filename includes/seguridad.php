@@ -6,6 +6,9 @@
 
 require_once __DIR__ . '/../config/database.php';
 
+// Este modulo centraliza la seguridad compartida del proyecto: sesiones seguras,
+// headers HTTP, validacion de entradas, hashing, autenticacion, CSRF y auditoria.
+
 // ══════════════════════════════════════════
 // INICIALIZACIÓN SEGURA DE SESIÓN Y HEADERS
 // ══════════════════════════════════════════

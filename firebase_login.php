@@ -10,6 +10,9 @@
 require_once __DIR__ . '/includes/seguridad.php';
 require_once __DIR__ . '/config/firebase.php';
 
+// Este endpoint recibe el idToken del navegador y lo convierte en una sesion PHP
+// tradicional para que el resto del sistema no dependa directamente del SDK web.
+
 iniciarSesionSegura();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -27,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     responderJson(405, ['ok' => false, 'mensaje' => 'Método no permitido']);
 }
 
+// El frontend actual envia JSON, pero se deja compatibilidad con form-data para
+// pruebas manuales y futuras integraciones.
 // Obtener cuerpo (JSON o form-data)
 $entrada = json_decode(file_get_contents('php://input'), true);
 if (!is_array($entrada) || empty($entrada)) {
@@ -66,6 +71,7 @@ $claims       = $verificacion['claims'];
 $nombreSesion = $claims['name'] ?? ($claims['email'] ?? $claims['user_id'] ?? 'usuario_firebase');
 
 // Crear sesión tradicional para reutilizar todo el sistema existente.
+// Desde aqui el acceso ya queda normalizado al modelo de sesion del proyecto.
 session_regenerate_id(true);
 $_SESSION['usuario_autenticado'] = true;
 $_SESSION['nombre_usuario']      = $nombreSesion;
@@ -74,9 +80,12 @@ $_SESSION['rol_usuario']         = 'usuario';
 $_SESSION['proveedor']           = 'firebase';
 
 // Registrar en el historial
+// Reutiliza el historial actual para que administracion vea este acceso igual
+// que un login local.
 registrarSesion($nombreSesion);
 
 // Nuevo token CSRF para futuras acciones.
+// Devuelve un token nuevo porque validarTokenCSRF invalida el anterior.
 $nuevoToken = generarTokenCSRF();
 
 responderJson(200, [
@@ -91,6 +100,8 @@ responderJson(200, [
  */
 function verificarIdTokenFirebase(string $idToken): array
 {
+    // Se usa accounts:lookup para comprobar del lado servidor que el token sigue
+    // siendo aceptado por Firebase antes de abrir la sesion local.
     $url = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' . urlencode(FIREBASE_API_KEY);
     $payload = json_encode(['idToken' => $idToken]);
 
@@ -133,6 +144,7 @@ function verificarIdTokenFirebase(string $idToken): array
 
     $user = $json['users'][0];
 
+    // Normaliza los campos que el resto de la aplicacion necesita para la sesion.
     $claims = [
         'user_id' => $user['localId'] ?? '',
         'email'   => $user['email'] ?? '',

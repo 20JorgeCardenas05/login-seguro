@@ -6,6 +6,9 @@
 
 require_once __DIR__ . '/includes/seguridad.php';
 require_once __DIR__ . '/config/firebase.php';
+// Esta vista expone dos caminos de autenticacion:
+// - Formulario local contra la base de datos.
+// - Login federado con Google mediante Firebase en el navegador.
 iniciarSesionSegura();
 
 // Si ya tiene sesión activa, redirigir según rol
@@ -21,6 +24,7 @@ if (isset($_SESSION['usuario_autenticado']) && $_SESSION['usuario_autenticado'] 
 $mensaje      = '';
 $tipoMensaje  = '';
 $usuarioInput = '';
+// Estas variables alimentan el mismo bloque de feedback visual del formulario.
 
 // Procesar formulario de login (usuario/contraseña local)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -68,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Generar nuevo token CSRF
+// El mismo token CSRF protege el POST tradicional y el fetch del flujo Firebase.
 $csrfToken = generarTokenCSRF();
 ?>
 <!DOCTYPE html>
@@ -122,17 +126,20 @@ $csrfToken = generarTokenCSRF();
 
             <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
 
+            <!-- Separador visual entre autenticacion local y federada -->
             <div class="oauth-divider">
                 <span></span>
                 <strong>o</strong>
                 <span></span>
             </div>
 
+            <!-- El detalle del flujo con Google vive en js/firebase-auth.js -->
             <button type="button" id="btn-google" class="btn btn-google" aria-live="polite">
                 <span class="google-icon">G</span>
                 Continuar con Google (Firebase)
             </button>
 
+            <!-- Zona para errores de popup, configuracion o validacion remota -->
             <div id="firebase-alert" class="alert alert-warning" style="display: none;"></div>
         </form>
 
@@ -142,6 +149,8 @@ $csrfToken = generarTokenCSRF();
     </div>
 
     <script>
+        // Configuracion publica que el SDK del navegador necesita para arrancar.
+        // La validacion final del token se realiza despues en firebase_login.php.
         // Configuración pública del proyecto Firebase (no contiene secretos).
         window.FIREBASE_CONFIG = {
             apiKey: "<?= addslashes(FIREBASE_API_KEY) ?>",
@@ -152,8 +161,10 @@ $csrfToken = generarTokenCSRF();
             measurementId: "<?= addslashes(FIREBASE_MEASUREMENT_ID) ?>"
         };
     </script>
+    <!-- SDKs usados solo por la autenticacion federada -->
     <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js" crossorigin="anonymous"></script>
     <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-auth-compat.js" crossorigin="anonymous"></script>
+    <!-- Orquestador del flujo Google -> Firebase -> backend PHP -->
     <script src="js/firebase-auth.js"></script>
 </body>
 </html>

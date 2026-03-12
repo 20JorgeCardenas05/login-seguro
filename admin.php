@@ -5,6 +5,8 @@
  */
 
 require_once __DIR__ . '/includes/seguridad.php';
+// El panel se resuelve del lado servidor para no exponer consultas
+// administrativas al cliente ni depender de peticiones extra via JavaScript.
 iniciarSesionSegura();
 
 // Verificar que el usuario esté autenticado
@@ -23,6 +25,7 @@ $nombreUsuario = htmlspecialchars($_SESSION['nombre_usuario'] ?? '', ENT_QUOTES,
 $totalUsuarios = contarUsuarios();
 $usuarios      = obtenerTodosLosUsuarios();
 
+// Ayuda a construir avatares legibles sin almacenar una imagen por usuario.
 // Generar iniciales para avatar
 function obtenerIniciales(string $nombre): string
 {

@@ -5,6 +5,8 @@
  */
 
 require_once __DIR__ . '/includes/seguridad.php';
+// Esta pantalla registra usuarios locales. El JavaScript del final solo mejora
+// la experiencia visual; las reglas reales se aplican y validan en PHP.
 iniciarSesionSegura();
 
 $mensaje      = '';
@@ -45,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Generar nuevo token CSRF
+// Cada render genera un token nuevo para proteger el siguiente envio del form.
 $csrfToken = generarTokenCSRF();
 ?>
 <!DOCTYPE html>
@@ -122,6 +124,7 @@ $csrfToken = generarTokenCSRF();
     </div>
 
     <script>
+        // Indicador de fuerza pensado para UX: no reemplaza la validacion del servidor.
         // Indicador visual de fuerza de contraseña (lado cliente)
         const passInput   = document.getElementById('contrasena');
         const strengthBar = document.getElementById('strengthBar');
@@ -148,6 +151,8 @@ $csrfToken = generarTokenCSRF();
         });
 
         // Validación de coincidencia de contraseñas (lado cliente)
+        // Solo marca visualmente el problema mientras ambas contrasenas no coinciden.
+        // El backend vuelve a comprobar esta condicion antes de registrar al usuario.
         const confirmInput = document.getElementById('confirmar_contrasena');
         confirmInput.addEventListener('input', function () {
             if (this.value !== passInput.value && this.value.length > 0) {

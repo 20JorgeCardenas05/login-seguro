@@ -5,6 +5,8 @@
  */
 
 require_once __DIR__ . '/includes/seguridad.php';
+// El logout invalida la sesion tanto en memoria como en la cookie del navegador
+// para evitar que el identificador anterior siga siendo reutilizable.
 iniciarSesionSegura();
 
 // Destruir todas las variables de sesión

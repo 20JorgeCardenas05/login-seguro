@@ -5,6 +5,8 @@
  */
 
 require_once __DIR__ . '/includes/seguridad.php';
+// Esta pagina funciona para cualquier login exitoso porque solo depende de que
+// la sesion PHP ya exista, sin importar si vino del formulario o de Firebase.
 iniciarSesionSegura();
 
 // Verificar que el usuario esté autenticado
@@ -21,6 +23,7 @@ if (esAdministrador()) {
 
 $nombreUsuario = htmlspecialchars($_SESSION['nombre_usuario'] ?? '', ENT_QUOTES, 'UTF-8');
 $horaLogin     = $_SESSION['hora_login'] ?? '';
+// Estos valores se muestran como confirmacion inmediata del acceso exitoso.
 ?>
 <!DOCTYPE html>
 <html lang="es">
