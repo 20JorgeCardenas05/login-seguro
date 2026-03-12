@@ -1,6 +1,8 @@
 # login-seguro
 - Baltazar Jiménez Juan Pablo
 - Cardenas Puente Jorge Rafael
+- Aldaco Godínez Jorge Emiliano
+- Valencia Massaky Santiago
 
 ## Autenticación con Firebase (Google)
 1. Crea un proyecto en Firebase Console y habilita Authentication → Sign-in method → Google.
