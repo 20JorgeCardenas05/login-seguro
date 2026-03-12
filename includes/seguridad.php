@@ -450,12 +450,74 @@ function esAdministrador(): bool
 function obtenerTodosLosUsuarios(): array
 {
     $db  = obtenerConexion();
-    $sql = "SELECT id, nombre_usuario, hash_contrasena, rol, fecha_creacion
+    $sql = "SELECT id, nombre_usuario, email, hash_contrasena, proveedor, rol, fecha_creacion
             FROM usuarios
             ORDER BY id ASC";
     $stmt = $db->prepare($sql);
     $stmt->execute();
     return $stmt->fetchAll();
+}
+
+/**
+ * Busca o crea un usuario de Firebase en la base de datos.
+ * Si ya existe (por email), devuelve su rol actual.
+ * Si no existe, lo crea con rol 'usuario'.
+ * @param string $email  Email del usuario de Google
+ * @param string $nombre Nombre para mostrar
+ * @return array         ['rol' => string]
+ */
+function obtenerOCrearUsuarioFirebase(string $email, string $nombre): array
+{
+    $db = obtenerConexion();
+
+    // Buscar por email
+    $sql  = "SELECT rol FROM usuarios WHERE email = :email AND activo = 1";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':email' => $email]);
+    $user = $stmt->fetch();
+
+    if ($user) {
+        return ['rol' => $user['rol']];
+    }
+
+    // Generar un nombre_usuario único basado en el email
+    $base = preg_replace('/[^a-zA-Z0-9_]/', '_', explode('@', $email)[0]);
+    $nombreUsuario = substr($base, 0, 45);
+
+    // Verificar si el nombre_usuario ya existe y añadir sufijo si es necesario
+    $sqlCheck = "SELECT COUNT(*) FROM usuarios WHERE nombre_usuario = :usuario";
+    $stmtCheck = $db->prepare($sqlCheck);
+    $stmtCheck->execute([':usuario' => $nombreUsuario]);
+    if ((int)$stmtCheck->fetchColumn() > 0) {
+        $nombreUsuario = substr($base, 0, 42) . '_' . bin2hex(random_bytes(2));
+    }
+
+    // Insertar nuevo usuario Firebase
+    $sql = "INSERT INTO usuarios (nombre_usuario, email, salt, hash_contrasena, proveedor, rol)
+            VALUES (:usuario, :email, '', '', 'firebase', 'usuario')";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([
+        ':usuario' => $nombreUsuario,
+        ':email'   => $email
+    ]);
+
+    return ['rol' => 'usuario'];
+}
+
+/**
+ * Cambia el rol de un usuario (admin ↔ usuario)
+ * @param int $idUsuario  ID del usuario a modificar
+ * @return bool           true si se actualizó
+ */
+function cambiarRolUsuario(int $idUsuario): bool
+{
+    $db  = obtenerConexion();
+    $sql = "UPDATE usuarios
+            SET rol = CASE WHEN rol = 'admin' THEN 'usuario' ELSE 'admin' END
+            WHERE id = :id";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':id' => $idUsuario]);
+    return $stmt->rowCount() > 0;
 }
 
 /**

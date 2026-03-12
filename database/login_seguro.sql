@@ -9,12 +9,14 @@ COLLATE utf8mb4_unicode_ci;
 
 USE login_seguro;
 
--- Tabla de usuarios
+-- Tabla de usuarios (soporta login local y Firebase)
 CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre_usuario VARCHAR(50) NOT NULL UNIQUE,
-    salt VARCHAR(64) NOT NULL,
-    hash_contrasena VARCHAR(64) NOT NULL,
+    email VARCHAR(255) DEFAULT NULL UNIQUE,
+    salt VARCHAR(64) NOT NULL DEFAULT '',
+    hash_contrasena VARCHAR(64) NOT NULL DEFAULT '',
+    proveedor ENUM('local', 'firebase') NOT NULL DEFAULT 'local',
     rol ENUM('usuario', 'admin') NOT NULL DEFAULT 'usuario',
     fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
     activo TINYINT(1) DEFAULT 1
@@ -45,3 +47,12 @@ CREATE TABLE IF NOT EXISTS registro_sesiones (
 -- Puede ejecutar manualmente:
 --   INSERT INTO usuarios (nombre_usuario, salt, hash_contrasena, rol)
 --   VALUES ('admin', '<sal_generada>', '<hash_generado>', 'admin');
+
+-- ============================================
+-- Migración: agregar columnas si la tabla ya existe
+-- Ejecutar solo si se actualiza desde una versión anterior.
+-- ============================================
+-- ALTER TABLE usuarios ADD COLUMN email VARCHAR(255) DEFAULT NULL UNIQUE AFTER nombre_usuario;
+-- ALTER TABLE usuarios ADD COLUMN proveedor ENUM('local', 'firebase') NOT NULL DEFAULT 'local' AFTER hash_contrasena;
+-- ALTER TABLE usuarios MODIFY COLUMN salt VARCHAR(64) NOT NULL DEFAULT '';
+-- ALTER TABLE usuarios MODIFY COLUMN hash_contrasena VARCHAR(64) NOT NULL DEFAULT '';

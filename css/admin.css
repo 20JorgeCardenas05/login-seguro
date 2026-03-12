@@ -364,6 +364,63 @@ body.admin-body {
     border: 1px solid #ddd;
 }
 
+/* ─── Provider Badges ─── */
+.provider-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.provider-firebase {
+    background: #e8f0fe;
+    color: #1a73e8;
+    border: 1px solid #aecbfa;
+}
+
+.provider-local {
+    background: #f3f3f3;
+    color: #666;
+    border: 1px solid #ddd;
+}
+
+/* ─── Toggle Role Buttons ─── */
+.btn-toggle-role {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-promote {
+    background: #eafaf1;
+    color: #27ae60;
+    border-color: #a9dfbf;
+}
+
+.btn-promote:hover {
+    background: #27ae60;
+    color: #fff;
+}
+
+.btn-demote {
+    background: #fdf2f2;
+    color: #e74c3c;
+    border-color: #f5b7b1;
+}
+
+.btn-demote:hover {
+    background: #e74c3c;
+    color: #fff;
+}
+
 /* ─── Security Note ─── */
 .security-note {
     display: flex;

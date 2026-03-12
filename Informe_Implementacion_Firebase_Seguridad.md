@@ -30,9 +30,9 @@ El sistema es una aplicación web PHP que ofrece **dos vías de autenticación**
 | Vía | Flujo |
 |-----|-------|
 | **Local** (usuario/contraseña) | Formulario → `login.php` → verifica hash en MySQL → sesión PHP |
-| **Firebase** (Google) | Botón Google → popup Firebase Auth → `idToken` → `firebase_login.php` valida token → sesión PHP |
+| **Firebase** (Google) | Botón Google → popup Firebase Auth → `idToken` → `firebase_login.php` valida token → busca/crea usuario en BD → lee rol → sesión PHP |
 
-Ambos caminos terminan en la misma sesión PHP tradicional (`$_SESSION`), lo que permite reutilizar las páginas protegidas (`bienvenida.php`, `admin.php`) sin distinguir el proveedor.
+Ambos caminos terminan en la misma sesión PHP tradicional (`$_SESSION`) y comparten la **misma tabla `usuarios`**, lo que permite gestionar roles de forma unificada desde el panel de administración sin importar el proveedor de autenticación.
 
 ### Estructura de archivos relevante
 
@@ -120,14 +120,28 @@ Se cargan los SDKs compat de Firebase (v12.9.0) desde CDN:
 
 1. Recibe el `idToken` vía POST (JSON).
 2. **Valida CSRF:** compara `csrf_token` contra `$_SESSION['csrf_token']` con `hash_equals`.
-3. **Valida el idToken** llamando a `https://oauth2.googleapis.com/tokeninfo?id_token=...` vía cURL (con verificación SSL activa).
-4. Verifica los **claims** del token:
-   - `aud` debe coincidir con el `FIREBASE_PROJECT_ID`.
-   - `iss` debe ser `https://securetoken.google.com/<project-id>` o `accounts.google.com`.
-   - `exp` debe ser mayor que `time()` (no expirado).
-5. Si todo pasa, crea la **sesión PHP** con `session_regenerate_id(true)` y redirige.
+3. **Valida el idToken** llamando a la API de Firebase Identity Toolkit (`accounts:lookup`) vía cURL (con verificación SSL activa).
+4. Extrae el **email** del usuario de los claims del token.
+5. **Busca o crea al usuario en la BD** mediante `obtenerOCrearUsuarioFirebase(email, nombre)` — si ya existe (por email), devuelve su rol actual; si no, lo inserta con `proveedor = 'firebase'` y `rol = 'usuario'`.
+6. Crea la **sesión PHP** con `session_regenerate_id(true)` usando el **rol real** de la BD.
+7. Redirige a `admin.php` si es admin, o a `bienvenida.php` si es usuario normal.
 
-### Paso 6 — Compatibilidad con popups (COOP)
+### Paso 6 — Persistencia de usuarios Firebase en la BD
+
+Cuando un usuario entra por primera vez con Google, se crea un registro en la tabla `usuarios` con:
+
+| Campo | Valor |
+|-------|-------|
+| `nombre_usuario` | Derivado del email (parte antes de `@`, sanitizado) |
+| `email` | Email de la cuenta Google |
+| `salt` | `''` (vacío, no aplica) |
+| `hash_contrasena` | `''` (vacío, la autenticación la maneja Google) |
+| `proveedor` | `'firebase'` |
+| `rol` | `'usuario'` (puede cambiarse desde el panel admin) |
+
+En logins posteriores, `obtenerOCrearUsuarioFirebase()` simplemente lee el rol existente de la BD, permitiendo que un administrador haya promovido al usuario entre sesiones.
+
+### Paso 7 — Compatibilidad con popups (COOP)
 
 Para que `signInWithPopup` funcione sin problemas, se envía el header:
 
@@ -174,8 +188,10 @@ La sal se concatena **antes** de la contraseña para evitar ataques de extensió
 ### Paso 3 — Almacenar en base de datos
 
 En la tabla `usuarios`:
-- `salt VARCHAR(64)` — la sal en hexadecimal.
-- `hash_contrasena VARCHAR(64)` — el hash SHA-256 resultante.
+- `salt VARCHAR(64)` — la sal en hexadecimal (vacío para usuarios Firebase).
+- `hash_contrasena VARCHAR(64)` — el hash SHA-256 resultante (vacío para usuarios Firebase).
+- `proveedor ENUM('local', 'firebase')` — indica el método de autenticación.
+- `email VARCHAR(255)` — email del usuario (usado como identificador único para Firebase).
 
 Ambos se insertan con **prepared statements** (PDO) para prevenir inyección SQL.
 
@@ -353,16 +369,38 @@ $stmt->execute([':usuario' => $usuario]);
 
 ## 10. Control de Acceso por Roles
 
-La tabla `usuarios` tiene un campo `rol ENUM('usuario', 'admin')`.
+La tabla `usuarios` tiene los campos `rol ENUM('usuario', 'admin')` y `proveedor ENUM('local', 'firebase')`.
 
 | Página | Acceso requerido | Verificación |
-|--------|-----------------|--------------|
+|--------|-----------------||--------------|
 | `login.php` | Público | Si ya tiene sesión, redirige según rol |
 | `registro.php` | Público | — |
 | `bienvenida.php` | Autenticado | `$_SESSION['usuario_autenticado'] === true` |
 | `admin.php` | Autenticado + Admin | `esAdministrador()` verifica `$_SESSION['rol_usuario'] === 'admin'` |
 
 Si un usuario normal intenta acceder a `admin.php`, es redirigido a `bienvenida.php`.
+
+### Gestión de Roles desde el Panel de Administración
+
+El panel `admin.php` incluye un botón de **cambio de rol** por cada usuario registrado (tanto locales como Firebase):
+
+1. Se muestra una tabla con todos los usuarios, incluyendo columna de **proveedor** (🔑 Local / 🌐 Google) y botón de acción.
+2. El botón **⬆ Hacer Admin** / **⬇ Quitar Admin** envía un POST protegido con CSRF.
+3. La función `cambiarRolUsuario(int $idUsuario)` ejecuta un `UPDATE` que alterna el rol:
+
+```php
+function cambiarRolUsuario(int $idUsuario): bool {
+    $sql = "UPDATE usuarios
+            SET rol = CASE WHEN rol = 'admin' THEN 'usuario' ELSE 'admin' END
+            WHERE id = :id";
+    // ...
+}
+```
+
+4. Se muestra un mensaje de confirmación tras el cambio.
+5. El nuevo rol se aplica en el **próximo inicio de sesión** del usuario afectado.
+
+Esto permite que un administrador **promueva a admin a un usuario que entró con Google**, sin necesidad de que ese usuario tenga contraseña local.
 
 ---
 
@@ -407,12 +445,14 @@ Esto asegura que el ID de sesión anterior no pueda ser reutilizado.
 
 | ID | Caso de Prueba | Precondiciones | Resultado Esperado | Criterio de Aceptación |
 |----|----------------|----------------|--------------------|------------------------|
-| G-01 | Login con Google exitoso | Firebase configurado, cuenta Google válida | Popup se abre, autentica y redirige a `bienvenida.php` | Sesión PHP creada con `proveedor = 'firebase'` |
+| G-01 | Login con Google exitoso | Firebase configurado, cuenta Google válida | Popup se abre, autentica y redirige a `bienvenida.php` | Sesión PHP creada con `proveedor = 'firebase'`, usuario creado en BD |
 | G-02 | Popup cerrado por el usuario | — | Muestra "La ventana emergente se cerró" | No se crea sesión, puede reintentar |
 | G-03 | Popup bloqueado por navegador | Popups deshabilitados | Muestra "El navegador bloqueó la ventana emergente" | Informa habilitar popups |
 | G-04 | Firebase sin configurar | `apiKey` con placeholder | Botón deshabilitado + aviso | No se permite clic |
 | G-05 | idToken con `aud` incorrecto | Token de otro proyecto | Servidor rechaza con 401 | Mensaje: "El token no pertenece a este proyecto" |
 | G-06 | idToken expirado | Token con `exp` en el pasado | Servidor rechaza con 401 | Mensaje: "El token expiró" |
+| G-07 | Segundo login con Google (usuario ya existe) | Mismo email en BD | Lee rol existente de BD, no crea duplicado | Sesión con rol actual (puede ser admin) |
+| G-08 | Login con Google de usuario promovido a admin | Admin cambió rol previamente | Redirige a `admin.php` | `$_SESSION['rol_usuario'] === 'admin'` |
 
 ### 12.4 Pruebas de Seguridad — CSRF
 
@@ -459,7 +499,18 @@ Esto asegura que el ID de sesión anterior no pueda ser reutilizado.
 | A-03 | Acceso a `admin.php` como admin | Sesión con `rol = 'admin'` | Muestra panel administrativo | `esAdministrador()` retorna `true` |
 | A-04 | Navegación tras logout | Sesión destruida, botón "atrás" del navegador | Página no muestra datos (caché deshabilitada) | Headers `Cache-Control: no-store` impiden cache |
 
+### 12.9 Pruebas de Gestión de Roles (Admin)
+
+| ID | Caso de Prueba | Precondiciones | Resultado Esperado | Criterio de Aceptación |
+|----|----------------|----------------|--------------------|------------------------|
+| RL-01 | Promover usuario local a admin | Admin logueado, usuario local existe | Rol cambia a `admin`, muestra "Rol actualizado correctamente" | BD refleja `rol = 'admin'` para ese usuario |
+| RL-02 | Promover usuario Firebase a admin | Admin logueado, usuario Firebase existe | Rol cambia a `admin` | Próximo login con Google redirige a `admin.php` |
+| RL-03 | Degradar admin a usuario | Admin logueado, otro admin existe | Rol cambia a `usuario` | BD refleja `rol = 'usuario'` |
+| RL-04 | Cambio de rol sin token CSRF | POST directo sin `csrf_token` | Muestra "Token CSRF inválido" | No se modifica el rol |
+| RL-05 | Cambio de rol como usuario normal | Sesión con `rol = 'usuario'`, POST a `admin.php` | Redirige a `bienvenida.php` | `esAdministrador()` bloquea el acceso |
+| RL-06 | Verificar proveedor en tabla | Usuario local y Firebase en BD | Columna muestra 🔑 Local y 🌐 Google respectivamente | Campo `proveedor` se muestra correctamente |
+
 ---
 
 > **Resumen de mecanismos de seguridad implementados:**
-> Hashing con sal (SHA-256), protección contra fuerza bruta, tokens CSRF de un solo uso, sesiones seguras (HttpOnly, SameSite, Secure), headers HTTP defensivos (CSP, X-Frame-Options, COOP), validación y sanitización de entradas, prepared statements PDO, control de acceso basado en roles, protección de archivos sensibles vía .htaccess, y validación de tokens Firebase en el servidor.
+> Hashing con sal (SHA-256), protección contra fuerza bruta, tokens CSRF de un solo uso, sesiones seguras (HttpOnly, SameSite, Secure), headers HTTP defensivos (CSP, X-Frame-Options, COOP), validación y sanitización de entradas, prepared statements PDO, control de acceso basado en roles con gestión dinámica desde el panel admin (aplica tanto a usuarios locales como Firebase/Google), persistencia unificada de usuarios en BD, protección de archivos sensibles vía .htaccess, y validación de tokens Firebase en el servidor.

@@ -68,15 +68,19 @@ if (!$verificacion['valido']) {
 }
 
 $claims       = $verificacion['claims'];
-$nombreSesion = $claims['name'] ?? ($claims['email'] ?? $claims['user_id'] ?? 'usuario_firebase');
+$emailGoogle  = $claims['email'] ?? '';
+$nombreSesion = $claims['name'] ?? ($emailGoogle ?: ($claims['user_id'] ?? 'usuario_firebase'));
+
+// Buscar o crear el usuario en la BD para poder asignarle rol desde el panel admin.
+require_once __DIR__ . '/config/database.php';
+$datosUsuario = obtenerOCrearUsuarioFirebase($emailGoogle, $nombreSesion);
 
 // Crear sesión tradicional para reutilizar todo el sistema existente.
-// Desde aqui el acceso ya queda normalizado al modelo de sesion del proyecto.
 session_regenerate_id(true);
 $_SESSION['usuario_autenticado'] = true;
 $_SESSION['nombre_usuario']      = $nombreSesion;
 $_SESSION['hora_login']          = date('Y-m-d H:i:s');
-$_SESSION['rol_usuario']         = 'usuario';
+$_SESSION['rol_usuario']         = $datosUsuario['rol'];
 $_SESSION['proveedor']           = 'firebase';
 
 // Registrar en el historial
@@ -88,9 +92,11 @@ registrarSesion($nombreSesion);
 // Devuelve un token nuevo porque validarTokenCSRF invalida el anterior.
 $nuevoToken = generarTokenCSRF();
 
+$redireccion = ($datosUsuario['rol'] === 'admin') ? 'admin.php' : 'bienvenida.php';
+
 responderJson(200, [
     'ok'          => true,
-    'redirect'    => 'bienvenida.php',
+    'redirect'    => $redireccion,
     'csrf_token'  => $nuevoToken,
     'displayName' => $nombreSesion,
 ]);

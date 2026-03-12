@@ -22,6 +22,24 @@ if (!esAdministrador()) {
 }
 
 $nombreUsuario = htmlspecialchars($_SESSION['nombre_usuario'] ?? '', ENT_QUOTES, 'UTF-8');
+
+// Procesar cambio de rol (POST)
+$mensajeAdmin = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_rol_id'])) {
+    $tokenCSRF = $_POST['csrf_token'] ?? '';
+    if (!validarTokenCSRF($tokenCSRF)) {
+        $mensajeAdmin = 'Token CSRF inválido. Recargue la página.';
+    } else {
+        $idCambio = (int)$_POST['cambiar_rol_id'];
+        if (cambiarRolUsuario($idCambio)) {
+            $mensajeAdmin = 'Rol actualizado correctamente.';
+        } else {
+            $mensajeAdmin = 'No se pudo cambiar el rol.';
+        }
+    }
+}
+
+$csrfToken     = generarTokenCSRF();
 $totalUsuarios = contarUsuarios();
 $usuarios      = obtenerTodosLosUsuarios();
 
@@ -92,6 +110,12 @@ function obtenerIniciales(string $nombre): string
             </div>
         </div>
 
+        <?php if ($mensajeAdmin): ?>
+            <div class="alert alert-<?= strpos($mensajeAdmin, 'correctamente') !== false ? 'success' : 'error' ?>" style="margin-bottom: 20px;">
+                <?= htmlspecialchars($mensajeAdmin, ENT_QUOTES, 'UTF-8') ?>
+            </div>
+        <?php endif; ?>
+
         <!-- Tabla de usuarios -->
         <div class="admin-card">
             <div class="card-header-row">
@@ -110,15 +134,20 @@ function obtenerIniciales(string $nombre): string
                             <tr>
                                 <th>#</th>
                                 <th>👤 USUARIO</th>
+                                <th>PROVEEDOR</th>
                                 <th># CONTRASEÑA (HASH SHA-256)</th>
                                 <th>ROL</th>
+                                <th>ACCIÓN</th>
                                 <th>REGISTRADO</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($usuarios as $i => $usr): ?>
                                 <?php
-                                    $hashTruncado = substr($usr['hash_contrasena'], 0, 20) . '...' . substr($usr['hash_contrasena'], -4);
+                                    $esFirebase   = ($usr['proveedor'] ?? 'local') === 'firebase';
+                                    $hashTruncado = $esFirebase
+                                        ? '(Google Auth)'
+                                        : substr($usr['hash_contrasena'], 0, 20) . '...' . substr($usr['hash_contrasena'], -4);
                                     $iniciales    = obtenerIniciales($usr['nombre_usuario']);
                                     $esAdmin      = $usr['rol'] === 'admin';
                                     $fechaFormato = date('d/m/Y, h:i a', strtotime($usr['fecha_creacion']));
@@ -128,8 +157,20 @@ function obtenerIniciales(string $nombre): string
                                     <td>
                                         <div class="user-cell">
                                             <span class="user-avatar <?= $esAdmin ? 'avatar-admin' : 'avatar-user' ?>"><?= htmlspecialchars($iniciales, ENT_QUOTES, 'UTF-8') ?></span>
-                                            <span><?= htmlspecialchars($usr['nombre_usuario'], ENT_QUOTES, 'UTF-8') ?></span>
+                                            <div>
+                                                <span><?= htmlspecialchars($usr['nombre_usuario'], ENT_QUOTES, 'UTF-8') ?></span>
+                                                <?php if (!empty($usr['email'])): ?>
+                                                    <br><small style="color:#888;"><?= htmlspecialchars($usr['email'], ENT_QUOTES, 'UTF-8') ?></small>
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
+                                    </td>
+                                    <td>
+                                        <?php if ($esFirebase): ?>
+                                            <span class="provider-badge provider-firebase">🌐 Google</span>
+                                        <?php else: ?>
+                                            <span class="provider-badge provider-local">🔑 Local</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <span class="hash-cell">
@@ -143,6 +184,16 @@ function obtenerIniciales(string $nombre): string
                                         <?php else: ?>
                                             <span class="role-badge role-user">👤 Usuario</span>
                                         <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <form method="POST" action="admin.php" style="margin:0;">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="cambiar_rol_id" value="<?= (int)$usr['id'] ?>">
+                                            <button type="submit" class="btn-toggle-role <?= $esAdmin ? 'btn-demote' : 'btn-promote' ?>"
+                                                    onclick="return confirm('¿Cambiar rol de <?= htmlspecialchars($usr['nombre_usuario'], ENT_QUOTES, 'UTF-8') ?> a <?= $esAdmin ? 'usuario' : 'admin' ?>?')">
+                                                <?= $esAdmin ? '⬇ Quitar Admin' : '⬆ Hacer Admin' ?>
+                                            </button>
+                                        </form>
                                     </td>
                                     <td><?= htmlspecialchars($fechaFormato, ENT_QUOTES, 'UTF-8') ?></td>
                                 </tr>
